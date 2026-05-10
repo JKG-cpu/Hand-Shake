@@ -1,0 +1,21 @@
+Header {
+    text-align: center;
+    align: center middle;
+    height: 3;
+}
+
+Input, Button {
+    background: transparent;
+    border: solid $panel;
+}
+
+Button:focus {
+    text-style: none;
+}
+
+/* Widgets */
+
+/* Classes */
+.section {
+    border: solid $panel;
+}
