@@ -16,7 +16,8 @@ class HandShake(App):
 
     def __init__(self) -> None:
         super().__init__()
-        self.commands = {
+        self.commands: dict[str, function | dict] = {
+            "exit": lambda: self.call_later(self.action_quit),
             "handshake": {
                 "exit": lambda: self.call_later(self.action_quit)
             }
@@ -25,22 +26,36 @@ class HandShake(App):
     def on_mount(self) -> None:
         self.push_screen("Home")
 
-    def run_command(self, input_str: str) -> None:
+    def run_command(self, input_str: str) -> tuple[list[str], int]:
         command = split(input_str)
 
         if not command:
-            return
+            return (command, 3)
 
-        name, sub, *args = command
-
-        try:
-            self.commands[name][sub](*args)
+        name, *extra = command
         
-        except TypeError:
-            self.notify("Invalid Command!")
+        # Unknown Command
+        if name not in self.commands:
+            return (command, 2)
+    
+        entry = self.commands[name]
 
-        except KeyError:
-            self.notify("Invalid Command!")
+        if callable(entry):
+            entry(*extra)
+            return (command, 0)
+    
+        # Needs Sub Command
+        if not extra:
+            return (command, 1)
+
+        sub, *args = extra
+
+        # Unknown Command
+        if sub not in entry:
+            return (command, 2)
+
+        entry[sub](*args)
+        return (command, 0)
 
     async def action_quit(self):
         self._clear_on_exit = True
