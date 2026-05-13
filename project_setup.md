@@ -46,13 +46,10 @@ Nodes
     - `Age: int`
     - `Job: str | dict`
     - `Moral: str | int`
-    - `State: str`
-    - `Corruption_level: int (1-5)`
     - `Influence: int (1-5)`
     - `Likes: list[str]`
     - `Dislikes: list[str]`
     - `Trusts: dict[str, int]`
-    - `Uptime: int`
     - `Reputation: int (1-5)`
     - `Stress: int (1-5)`
 
@@ -87,7 +84,6 @@ Nodes
 
 ### TUI
 - rich
-- textual
 
 ### Data handling
 - json
