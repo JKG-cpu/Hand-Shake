@@ -1,7 +1,9 @@
+import asyncio
 from collections import defaultdict
 from typing import Callable
 
 from .events import *
+from .time import *
 from ..nodes import Node
 
 __all__ = [
@@ -16,6 +18,49 @@ class Civilization:
         self.name = civilization_name
         self.nodes: dict[str, Node] = {}
         self._listeners: dict[EventType, list[Callable[[Event], None]]] = defaultdict(list)
+
+        self.current_time: Time = Time()
+        self._total_ticks: int = 0
+        self._scheduled: dict[int, list[Event]] = defaultdict(list)
+        self._time_task: asyncio.Task | None = None
+
+    # Time System
+    #region
+    def schedule(self, tick: int, event: Event) -> None:
+        """Schedule an event to happen at a specified tick"""
+        self._scheduled[tick].append(event)
+
+    def schedule_at(self, event: Event, *, year: int = 0, month: int = 1, day: int = 0, tick: int = 0) -> None:
+        total = (
+            year * MONTHS_PER_YEAR * DAYS_PER_MONTH, * TICKS_PER_DAY +
+            (month - 1) * DAYS_PER_MONTH * TICKS_PER_DAY +
+            day * TICKS_PER_DAY +
+            tick
+        )
+        self._scheduled[total].append(event)
+
+    async def _run_time(self) -> None:
+        while True:
+            self._total_ticks += 1
+            self.current_time = Time.from_ticks(self._total_ticks)
+
+            if self._total_ticks in self._scheduled:
+                for event in self._scheduled[self._total_ticks]:
+                    self.emit(event)
+                
+            if self.current_time.tick == 0 and self.current_time.day == 0 and self.current_time.month == 1:
+                self.emit(EventType.INCREASE_AGE)
+
+    def start(self) -> None:
+        """Start Time System"""
+        self._time_task = asyncio.create_task(self._run_time())
+
+    def stop(self) -> None:
+        """Stop the Time System"""
+        if self._time_task:
+            self._time_task.cancel()
+            self._time_task = None
+    #endregion
 
     # Event System
     #region
