@@ -1,1 +1,5 @@
-from .civliization import *
+from .civlization import *
+
+__all__ = [
+    "Civilization",
+]

@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from collections import defaultdict
 from typing import Callable
 
@@ -22,7 +23,9 @@ class Civilization:
         self.current_time: Time = Time()
         self._total_ticks: int = 0
         self._scheduled: dict[int, list[Event]] = defaultdict(list)
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._time_task: asyncio.Task | None = None
+        self._thread: threading.Thread | None = None
 
     # Time System
     #region
@@ -32,7 +35,7 @@ class Civilization:
 
     def schedule_at(self, event: Event, *, year: int = 0, month: int = 1, day: int = 0, tick: int = 0) -> None:
         total = (
-            year * MONTHS_PER_YEAR * DAYS_PER_MONTH, * TICKS_PER_DAY +
+            year * MONTHS_PER_YEAR * DAYS_PER_MONTH * TICKS_PER_DAY +
             (month - 1) * DAYS_PER_MONTH * TICKS_PER_DAY +
             day * TICKS_PER_DAY +
             tick
@@ -49,17 +52,37 @@ class Civilization:
                     self.emit(event)
                 
             if self.current_time.tick == 0 and self.current_time.day == 0 and self.current_time.month == 1:
-                self.emit(EventType.INCREASE_AGE)
+                self.emit(Event(EventType.INCREASE_AGE))
+
+            await asyncio.sleep(TICK_SPEED)
 
     def start(self) -> None:
-        """Start Time System"""
-        self._time_task = asyncio.create_task(self._run_time())
+        """Start Time System in a background daemon thread"""
+        if self._thread and self._thread.is_alive():
+            return
+        self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
+        self._thread.start()
+
+    def _run_event_loop(self) -> None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._loop = loop
+        self._time_task = loop.create_task(self._run_time())
+        try:
+            loop.run_until_complete(self._time_task)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            loop.close()
+            self._loop = None
 
     def stop(self) -> None:
         """Stop the Time System"""
-        if self._time_task:
-            self._time_task.cancel()
-            self._time_task = None
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._time_task.cancel)
+        if self._thread and self._thread.is_alive():
+            self._thread.join()
+        self._thread = None
     #endregion
 
     # Event System
